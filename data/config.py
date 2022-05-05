@@ -2,13 +2,25 @@
 import os.path
 
 # gets home dir cross platform
-home = os.path.expanduser("~")
-home = '/media/sde/xychen/RFBNet/'
-ddir = os.path.join(home,"data/VOCdevkit/")
+# home = os.path.expanduser("~")
+# home = '/media/sde/xychen/RFBNet/'
+# ddir = os.path.join(home,"data/VOCdevkit/")
+
+# home = 'H:/Datasets/'
+home = '/home/Datasets'
+ddir = os.path.join(home,"VOCdevkit/")
 
 # note: if you used our download scripts, this should be right
 VOCroot = ddir # path to VOCdevkit root dir
-COCOroot = os.path.join(home,"data/COCO/")
+COCOroot = os.path.join(home,"COCO/022719/")
+
+# visualization
+Visdom = {
+    'env': 'DID',  # visdom env
+    'port': 8097,
+    'plot_every': 40,  # vis every N iter
+}
+    
 
 
 #RFB CONFIGS

@@ -62,6 +62,7 @@ VOC_CLASSES = ( '__background__', # always index 0
                 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush')
 ''''''
 
+
 '''
 VOC_CLASSES = ( '__background__', # always index 0
      'aeroplane', 'bicycle', 'bird', 'boat', 'bottle')
@@ -76,8 +77,8 @@ VOC_CLASSES = ( '__background__', # always index 0
                 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor')
 
 '''
-VOC_CLASSES = ( '__background__', # always index 0
-     'aeroplane', 'bicycle', 'bird', 'boat', 'bottle')
+# VOC_CLASSES = ( '__background__', # always index 0
+#      'aeroplane', 'bicycle', 'bird', 'boat', 'bottle')
 
 # for making bounding boxes pretty
 COLORS = ((255, 0, 0, 128), (0, 255, 0, 128), (0, 0, 255, 128),
@@ -224,6 +225,7 @@ class VOCDetection(data.Dataset):
 
     def __getitem__(self, index):
         img_id = self.ids[index]
+        # print('img_id: ', img_id)
         target = ET.parse(self._annopath % img_id).getroot()
         img = cv2.imread(self._imgpath % img_id, cv2.IMREAD_COLOR)
         height, width, _ = img.shape
@@ -238,8 +240,10 @@ class VOCDetection(data.Dataset):
 
                     # target = self.target_transform(target, width, height)
         #print(target.shape)
+        # print(img.shape, target.shape, img_id)
 
-        return img, target
+        # return {'img': img, 'target': target, 'img_id' :img_id}
+        return img, target, img_id[1]
 
     def __len__(self):
         return len(self.ids)
@@ -508,6 +512,7 @@ def detection_collate(batch):
     """
     targets = []
     imgs = []
+    img_ids = []
     imgs_resnet = []
     for _, sample in enumerate(batch):
         for _, tup in enumerate(sample):
@@ -523,5 +528,9 @@ def detection_collate(batch):
                 annos = torch.from_numpy(tup).float()
                 targets.append(annos)
 
+            # elif isinstance(tup, )
+            else: #img_ids
+                img_ids.append(tup)
+
     #return (torch.stack(imgs, 0), targets, torch.stack(imgs_resnet, 0))
-    return (torch.stack(imgs, 0), targets)
+    return (torch.stack(imgs, 0), targets, img_ids)

@@ -55,7 +55,11 @@ class COCODetection(data.Dataset):
             'minival2014' : 'val2014',          # 5k val2014 subset
             'valminusminival2014' : 'val2014',  # val2014 \setminus minival2014
             'test-dev2015' : 'test2015',
+            'test-dev2017' : 'test2017',
         }
+
+        if not os.path.exists(self.cache_path):
+            os.mkdir(self.cache_path)
 
         for (year, image_set) in image_sets:
             coco_name = image_set+year
@@ -88,14 +92,17 @@ class COCODetection(data.Dataset):
         """
         # Example image path for index=119993:
         #   images/train2014/COCO_train2014_000000119993.jpg
-        if name == 'val2017' or name == 'train2017':
+        if name == 'val2017' or name == 'train2017' or name == 'test2017':
             file_name = (str(index).zfill(12) + '.jpg')
         else:
             file_name = ('COCO_' + name + '_' +
                      str(index).zfill(12) + '.jpg')
         # if use 2017
         # file_name = (str(index).zfill(12) + '.jpg')
-        image_path = os.path.join(self.root, 'images',
+        # image_path = os.path.join(self.root, 'images',
+        #                       name, file_name) 
+        # remove 'images' ---cong-20220408
+        image_path = os.path.join(self.root,
                               name, file_name)
         assert os.path.exists(image_path), \
                 'Path does not exist: {}'.format(image_path)
