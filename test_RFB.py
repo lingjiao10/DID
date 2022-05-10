@@ -199,6 +199,8 @@ if __name__ == '__main__':
         testset = COCODetection(
         #COCOroot, [('2017', 'val')], None)
             COCOroot, [('2015', 'test-dev')], None)
+
+            # COCOroot, [('2017', 'test-dev')], None)
     else:
         print('Only VOC and COCO dataset are supported now!')
     if args.cuda:

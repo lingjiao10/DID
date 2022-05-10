@@ -12,14 +12,50 @@ import numpy as np
 from torch.autograd import Variable
 import torch.utils.data as data
 from data import VOCroot, COCOroot, VOC_300, VOC_512, COCO_300, COCO_512, COCO_mobile_300, AnnotationTransform, \
-    COCODetection, VOCDetection, detection_collate, BaseTransform, preproc, preproc_tf
+    COCODetection, VOCDetection, detection_collate, BaseTransform, preproc, preproc_tf, Visdom
 from layers.modules import MultiBoxLoss, MultiBoxLoss_tf_source, MultiBoxLoss_tf_source_combine
 from layers.functions import PriorBox
 import time
+from collections import namedtuple
+
+# used by trainer
+from utils.vis_tool import Visualizer
+from torchnet.meter import ConfusionMeter, AverageValueMeter
+from utils import array_tool as at
+
+import math
 
 # os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 # os.environ["CUDA_VISIBLE_DEVICES"] = "4, 5, 6, 7"
 # torch.cuda.set_device(4)
+
+LossTuple = namedtuple('LossTuple',
+                       ['loc_loss',
+                        'conf_loss',
+                        'bin_loss',
+                        'total_loss'
+                        ])
+
+
+#-----------------trainer-------------------
+class MyTrainer(nn.Module):
+    def __init__(self):
+        super(MyTrainer, self).__init__()
+
+        self.meters = {k: AverageValueMeter() for k in LossTuple._fields}  # average loss
+
+    def update_meters(self, losses):
+            loss_d = {k: at.scalar(v) for k, v in losses._asdict().items()}
+            for key, meter in self.meters.items():
+                meter.add(loss_d[key])
+
+    def get_meter_data(self):
+            return {k: v.value()[0] for k, v in self.meters.items()}
+
+    def reset_meters(self):
+        for key, meter in self.meters.items():
+            meter.reset()
+#-------------------------------------------
 
 parser = argparse.ArgumentParser(
     description='Receptive Field Block Net Training')
@@ -43,8 +79,11 @@ parser.add_argument('--ngpu', default=4, type=int, help='gpus')
 parser.add_argument('--lr', '--learning-rate',
                     default=4e-3, type=float, help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
+# parser.add_argument(
+#     '--resume_net', default='./weights/task1-source/tradictionvoc/RFB_vgg_VOC_epoches_70.pth', help='resume net for retraining')
+
 parser.add_argument(
-    '--resume_net', default='./weights/task1-source/tradictionvoc/RFB_vgg_VOC_epoches_70.pth', help='resume net for retraining')
+    '--resume_net', default=None, help='resume net for retraining')
 parser.add_argument('--resume_epoch', default=70,
                     type=int, help='resume iter for retraining')
 parser.add_argument('-max', '--max_epoch', default=300,
@@ -67,7 +106,8 @@ if args.dataset == 'VOC':
     #train_sets = [('2007', 'trainval')]
     #train_sets = [('2007-task3-source', 'trainval')]
     #train_sets = [('2007-task3-target1', 'trainval')]
-    train_sets = [('2017-task1-source', 'train')]
+    # train_sets = [('2017-task1-source', 'train')]
+    train_sets = [('2017-task1-source-check', 'train')]
     cfg = (VOC_300, VOC_512)[args.size == '512']
 else:
     # train_sets = [('2014', 'train'),('2014', 'valminusminival')]
@@ -172,9 +212,13 @@ with torch.no_grad():
     if args.cuda:
         priors = priors.cuda()
 
-
 def train():
     net.train()
+    vis = Visualizer(env=Visdom['env'])
+    trainer = MyTrainer()
+    if args.cuda:
+        trainer = trainer.cuda()
+    # meters = {k: AverageValueMeter() for k in LossTuple._fields}  # average loss #used to plot loss curve
     # loss counters
     loc_loss = 0  # epoch
     conf_loss = 0
@@ -209,16 +253,25 @@ def train():
     lr = args.lr
     for iteration in range(start_iter, max_iter):
         if iteration % epoch_size == 0:
+            epoch_t0 = time.time()    
             # create batch iterator
             batch_iterator = iter(data.DataLoader(dataset, batch_size,
                                                   shuffle=True, num_workers=args.num_workers,
                                                   collate_fn=detection_collate))
             loc_loss = 0
             conf_loss = 0
+            binary_loss = 0
+
+            trainer.reset_meters()
             if (epoch % 10 == 0 and epoch > 0) or (epoch % 5 == 0 and epoch > 200):
                 torch.save(net.state_dict(), args.save_folder + args.version + '_' + args.dataset + '_epoches_' +
                            repr(epoch) + '.pth')
+
+            #calculate loss and mAP，show training curve in visdom
+            
+
             epoch += 1
+        
 
         load_t0 = time.time()
         if iteration in stepvalues:
@@ -226,7 +279,11 @@ def train():
         lr = adjust_learning_rate(optimizer, args.gamma, epoch, step_index, iteration, epoch_size)
 
         # load train data
-        images, targets = next(batch_iterator)
+        # print(batch_iterator)
+        # print(next(batch_iterator))
+        images, targets, img_ids = next(batch_iterator)
+
+        # print('targets: ', targets)
 
         # print(np.sum([torch.sum(anno[:,-1] == 2) for anno in targets]))
 
@@ -249,16 +306,47 @@ def train():
         loss = loss_l + loss_c + loss_bin
         loss.backward()
         optimizer.step()
+
+        # print('LossTuple: ', LossTuple(loss_l.item(), loss_c.item(), loss_bin.item(), loss.item()))
+        trainer.update_meters(LossTuple(loss_l, loss_c, loss_bin, loss)) #calculate and save average losses
+
+        if math.isinf(loss_l.item()):
+            print('------------stop----------')
+            print(loss_l)
+            print('targets: ', targets)
+            print('img_ids： ', img_ids)
+            return
+
         t1 = time.time()
         loc_loss += loss_l.item()
         conf_loss += loss_c.item()
+        binary_loss += loss_bin.item()
         load_t1 = time.time()
-        if iteration % 10 == 0:
+        if (iteration + 1) % Visdom['plot_every'] == 0:
             print('Epoch:' + repr(epoch) + ' || epochiter: ' + repr(iteration % epoch_size) + '/' + repr(epoch_size)
                   + '|| Totel iter ' +
                   repr(iteration) + ' || L: %.4f C: %.4f B: %.4f||' % (
                       loss_l.item(), loss_c.item(), loss_bin.item()) +
                   'Batch time: %.4f sec. ||' % (load_t1 - load_t0) + 'LR: %.8f' % (lr))
+
+            # show training curve in visdom // in single epoch, we draw average loss of all calculated iteration loss
+            # print('LossTuple: ', LossTuple(loss_l, loss_c, loss_bin, loss))
+            # print("trainer.get_meter_data(): ")
+            print(trainer.get_meter_data())
+            vis.plot_many(trainer.get_meter_data())
+
+        #end of one epoch
+        if (iteration + 1) % epoch_size == 0:            
+            #print epoch loss and (TODO)mAP 
+            epoch_t1 = time.time()  
+            print('-------------------------')      
+            #these loss values can be replaced by trainer.meters     
+            print('Epoch:' + repr(epoch) + '/ ' + repr(epoch_size) + ' || L: %.4f C: %.4f B: %.4f||' % (
+                      loc_loss/(iteration % epoch_size), conf_loss/(iteration % epoch_size), 
+                      binary_loss/(iteration % epoch_size)) +
+                  'Epoch time: %.4f min. ||' % ((epoch_t1 - epoch_t0)/60) + 'LR: %.8f' % (lr))
+            print('-------------------------') 
+
 
     torch.save(net.state_dict(), args.save_folder +
                'Final_' + args.version + '_' + args.dataset + '.pth')
