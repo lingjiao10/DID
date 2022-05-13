@@ -194,7 +194,8 @@ if __name__ == '__main__':
     if args.dataset == 'VOC':
         testset = VOCDetection(
             #VOCroot, [('2007', 'test')], None, AnnotationTransform())
-            VOCroot, [('2017-task1-source-test', 'test')], None, AnnotationTransform())
+            # VOCroot, [('2017-task1-source-test', 'test')], None, AnnotationTransform())
+            VOCroot, [('2017-task1-source', 'test')], None, AnnotationTransform())
     elif args.dataset == 'COCO':
         testset = COCODetection(
         #COCOroot, [('2017', 'val')], None)
