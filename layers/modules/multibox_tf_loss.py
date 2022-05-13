@@ -65,17 +65,17 @@ class MultiBoxLoss_tf_source(nn.Module):
         priors = priors
         num = loc_data.size(0)
         num_priors = (priors.size(0))
-        print('num_priors: ', num_priors)
+        # print('num_priors: ', num_priors)
         num_classes = self.num_classes
 
         # match priors (default boxes) and ground truth boxes
         loc_t = torch.Tensor(num, num_priors, 4)
         conf_t = torch.LongTensor(num, num_priors)
         bin_conf_t = torch.LongTensor(num, num_priors)
-        print("------------------------------------------------")
-        print('original loc_t: ', loc_t.size())
-        np.savetxt('original_loc_t.npy', loc_t.view(-1,4).cpu().detach().numpy())
-        print(loc_t)
+        # print("------------------------------------------------")
+        # print('original loc_t: ', loc_t.size())
+        # np.savetxt('original_loc_t.npy', loc_t.view(-1,4).cpu().detach().numpy())
+        # print(loc_t)
         for idx in range(num):
             truths = targets[idx][:,:-1].data
             labels = targets[idx][:,-1].data
@@ -89,21 +89,21 @@ class MultiBoxLoss_tf_source(nn.Module):
         loc_t = Variable(loc_t, requires_grad=False)
         conf_t = Variable(conf_t,requires_grad=False)
         bin_conf_t = Variable(bin_conf_t,requires_grad=False)
-        print('loc_t.size(): ', loc_t.size())
+        # print('loc_t.size(): ', loc_t.size())
         pos = bin_conf_t > 0
 
         # Localization Loss (Smooth L1)
         # Shape: [batch,num_priors,4]
         pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_data)
-        print('pos_idx: ', pos_idx)
+        # print('pos_idx: ', pos_idx)
         loc_p = loc_data[pos_idx].view(-1,4)
         loc_t = loc_t[pos_idx].view(-1,4)
         loss_l = F.smooth_l1_loss(loc_p, loc_t, reduction='sum')
         # np.savetxt('loc_p.npy', loc_p.cpu().detach().numpy())
         # np.savetxt('loc_t.npy', loc_t.cpu().detach().numpy())
-        print('loc_t.size(): ', loc_t.size())
+        # print('loc_t.size(): ', loc_t.size())
         
-        print("------------------------------------------------")
+        # print("------------------------------------------------")
         if  math.isinf(loss_l.item()):
             print('--------------------loss_l == inf--------------')
             np.savetxt('loc_p.npy', loc_p.cpu().detach().numpy())

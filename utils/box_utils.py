@@ -146,7 +146,7 @@ def match_3_terms(threshold, truths, priors, variances, labels, loc_t, conf_t, b
     Return:
         The matched indices corresponding to 1)location and 2)confidence preds.
     """
-    print('truths: ', truths)
+    # print('truths: ', truths)
     # jaccard index
     overlaps = jaccard(
         truths,
@@ -172,8 +172,8 @@ def match_3_terms(threshold, truths, priors, variances, labels, loc_t, conf_t, b
     bin_conf = torch.zeros_like(conf)
     bin_conf[conf > 0] = 1
 
-    np.savetxt('matched-'+str(idx), matches.cpu().detach().numpy())
-    np.savetxt('priors-'+str(idx), priors.cpu().detach().numpy())
+    # np.savetxt('matched-'+str(idx), matches.cpu().detach().numpy())
+    # np.savetxt('priors-'+str(idx), priors.cpu().detach().numpy())
 
     loc = encode(matches, priors, variances, idx)
     loc_t[idx] = loc    # [num_priors,4] encoded offsets to learn
@@ -193,8 +193,8 @@ def encode(matched, priors, variances, idx):
     Return:
         encoded boxes (tensor), Shape: [num_priors, 4]
     """
-    print('encode input: ')
-    print(matched, priors, variances)
+    # print('encode input: ')
+    # print(matched, priors, variances)
 
     # dist b/t match center and prior's center
     g_cxcy = (matched[:, :2] + matched[:, 2:])/2 - priors[:, :2]
@@ -202,8 +202,8 @@ def encode(matched, priors, variances, idx):
     g_cxcy /= (variances[0] * priors[:, 2:])
     # match wh / prior wh
     g_wh = (matched[:, 2:] - matched[:, :2]) / priors[:, 2:]
-    print('g_wh: ', g_wh)
-    np.savetxt('g_wh-'+str(idx), g_wh.cpu().detach().numpy())
+    # print('g_wh: ', g_wh)
+    # np.savetxt('g_wh-'+str(idx), g_wh.cpu().detach().numpy())
 
     g_wh = torch.log(g_wh) / variances[1]
     # return target for smooth_l1_loss

@@ -106,8 +106,8 @@ if args.dataset == 'VOC':
     #train_sets = [('2007', 'trainval')]
     #train_sets = [('2007-task3-source', 'trainval')]
     #train_sets = [('2007-task3-target1', 'trainval')]
-    # train_sets = [('2017-task1-source', 'train')]
-    train_sets = [('2017-task1-source-check', 'train')]
+    train_sets = [('2017-task1-source', 'train')]
+    # train_sets = [('2017-task1-source-check', 'train')]
     cfg = (VOC_300, VOC_512)[args.size == '512']
 else:
     # train_sets = [('2014', 'train'),('2014', 'valminusminival')]
@@ -315,7 +315,7 @@ def train():
             print(loss_l)
             print('targets: ', targets)
             print('img_ids： ', img_ids)
-            return
+            # return
 
         t1 = time.time()
         loc_loss += loss_l.item()
